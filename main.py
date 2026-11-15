@@ -222,3 +222,119 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    import asyncio
+import logging
+import os
+import random
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+TOKEN = os.getenv("BOT_TOKEN", "9067120273:AAuL_Zft27eZiHzTzBYPF1e2Q9q89Xw5gc")
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+def get_main_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎮 ጨዋታ ጀምር (Play)", callback_data="play_menu")],
+            [InlineKeyboardButton(text="💰 የእኔ ቀሪ ሂሳብ", callback_data="balance"),
+             InlineKeyboardButton(text="📥 ገንዘብ ማስገባት", callback_data="deposit")],
+            [InlineKeyboardButton(text="📤 ገንዘብ ማውጣት", callback_data="withdraw")],
+            [InlineKeyboardButton(text="📋 አጠቃቀም መመሪያ", callback_data="instructions")]
+        ]
+    )
+
+def get_rooms_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎮 ጨዋታ | 5 ብር", callback_data="room_5")],
+            [InlineKeyboardButton(text="🎮 ጨዋታ | 10 ብር", callback_data="room_10")],
+            [InlineKeyboardButton(text="🔙 ወደ ዋናው ሜኑ", callback_data="back_to_main")]
+        ]
+    )
+
+def generate_bingo_card():
+    # 5x5 የቢንጎ ካርድ በዘፈቀደ ቁጥሮች ማመንጨት
+    card = []
+    for _ in range(5):
+        row = [str(random.randint(1, 75)) for _ in range(5)]
+        card.append(" | ".join(row))
+    return "\n---------------------\n".join(card)
+
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    welcome_text = (
+        "✨ **ወደ Shakiso Gold Bingo በደህና መጡ!** ✨\n\n"
+        "በሞባይል ስልክዎ እየተዝናኑ የሚሸለሙበት አስደሳች የቢንጎ ጨዋታ። "
+        "እባክዎ ከታች ከሚገኙት አማራጮች የሚፈልጉትን ይምረጡ!"
+    )
+    await message.answer(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu())
+
+@dp.message(Command("play"))
+async def cmd_play(message: types.Message):
+    await message.answer("👇 እባክዎ ለመጫወት የሚፈልጉትን ክፍል (Room) ይምረጡ:", reply_markup=get_rooms_menu())
+
+@dp.callback_query(F.data == "play_menu")
+async def process_play_menu(callback: types.CallbackQuery):
+    await callback.message.edit_text("👇 እባክዎ ለመጫወት የሚፈልጉትን ክፍል (Room) ይምረጡ:", reply_markup=get_rooms_menu())
+    await callback.answer()
+
+@dp.callback_query(F.data.in_({"room_5", "room_10"}))
+async def process_room_selection(callback: types.CallbackQuery):
+    room_name = "5 ብር" if callback.data == "room_5" else "10 ብር"
+    card = generate_bingo_card()
+    
+    game_text = (
+        f"🎟️ **የ Shakiso Gold Bingo ካርድዎ ({room_name})**\n\n"
+        f"{card}\n\n"
+        "⏳ ጨዋታው ሊጀመር ነው... እባክዎ ይጠብቁ!"
+    )
+    
+    back_markup = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🔙 ወደ ክፍሎች ምርጫ", callback_data="play_menu")]]
+    )
+    
+    await callback.message.edit_text(game_text, parse_mode="Markdown", reply_markup=back_markup)
+    await callback.answer()
+
+@dp.callback_query(F.data == "balance")
+async def process_balance(callback: types.CallbackQuery):
+    await callback.answer("💰 የእርስዎ ቀሪ ሂሳብ: 0.00 ብር", show_alert=True)
+
+@dp.callback_query(F.data == "deposit")
+async def process_deposit(callback: types.CallbackQuery):
+    await callback.message.answer("📥 ገንዘብ ለማስገባት በቴሌብር (Telebirr) ወይም በባንክ አካውንት ይጠቀሙ።")
+    await callback.answer()
+
+@dp.callback_query(F.data == "withdraw")
+async def process_withdraw(callback: types.CallbackQuery):
+    await callback.message.answer("📤 ገንዘብ ለማውጣት `/withdraw` የሚለውን ትእዛዝ ይጠቀሙ።")
+    await callback.answer()
+
+@dp.callback_query(F.data == "instructions")
+async def process_instructions(callback: types.CallbackQuery):
+    instructions_text = (
+        "📋 **የቢንጎ ጨዋታ መመሪያ:**\n\n"
+        "1. ከ 5 ብር ወይም 10 ብር ክፍሎች አንዱን ይምረጡ።\n"
+        "2. የቢንጎ ካርድ ይደርስዎታል።\n"
+        "3. ቁጥሮች ሲጠሩ በካርድዎ ላይ ካሉ ይሞላሉ።\n"
+        "4. መጀመሪያ ካርዱን የጨረሰ አሸናፊ ይሆናል!"
+    )
+    await callback.message.answer(instructions_text, parse_mode="Markdown")
+    await callback.answer()
+
+@dp.callback_query(F.data == "back_to_main")
+async def process_back(callback: types.CallbackQuery):
+    await callback.message.edit_text("✨ **ዋና ሜኑ**:", reply_markup=get_main_menu())
+    await callback.answer()
+
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    print("Bot is starting...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
